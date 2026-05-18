@@ -1,0 +1,33 @@
+# Entorno virtual
+venv/
+env/
+.venv/
+
+# Bytecode de Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Archivos de entorno con secretos
+.env
+*.env.local
+*.env.*.local
+
+# IDE y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Alembic (si quieres ignorar la carpeta de migraciones local, aunque luego se versiona)
+# alembic/versions/*.pyc
+
+# Dependencias compiladas (opcional)
+*.egg-info/
+dist/
+build/
