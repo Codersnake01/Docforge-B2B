@@ -52,6 +52,11 @@ def get_current_organization(
 
 # ---------- ENDPOINTS ----------
 
+# Health check (para keep‑alive y monitoreo)
+@app.get("/api/v1/health")
+def health_check():
+    return {"status": "ok"}
+
 # Registro de organización (abierto, sin auth)
 @app.post("/api/v1/organizations", response_model=schemas.OrganizationOut, status_code=201)
 def register_organization(org: schemas.OrganizationCreate, db: Session = Depends(get_db)):
