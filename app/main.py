@@ -13,6 +13,15 @@ from app.core.templates import generate_pdf_from_template_string
 # ---------- CREACIÓN DE LA APP ----------
 app = FastAPI(title="DocForge B2B API", version="1.0.0")
 
+# ---------- CREACIÓN AUTOMÁTICA DE TABLAS (DESARROLLO) ----------
+from app.database import engine, Base
+from app import models  # Esto carga todos los modelos
+
+@app.on_event("startup")
+def create_tables():
+    Base.metadata.create_all(bind=engine)
+    print("✅ Tablas verificadas/creadas exitosamente.")
+
 # ---------- ESQUEMA DE SEGURIDAD PARA SWAGGER (BOTÓN AUTHORIZE) ----------
 def custom_openapi():
     if app.openapi_schema:
