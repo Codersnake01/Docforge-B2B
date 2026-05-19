@@ -1,4 +1,7 @@
 # ---------- IMPORTS ----------
+import os
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI, Depends, HTTPException, Header, status
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import Response
@@ -12,6 +15,16 @@ from app.core.templates import generate_pdf_from_template_string
 
 # ---------- CREACIÓN DE LA APP ----------
 app = FastAPI(title="DocForge B2B API", version="1.0.0")
+
+@app.on_event("startup")
+def run_migrations():
+    """Ejecuta las migraciones automáticamente al iniciar la aplicación."""
+    try:
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        print("Migraciones ejecutadas correctamente.")
+    except Exception as e:
+        print(f"Error durante las migraciones: {e}")
 
 # ---------- ESQUEMA DE SEGURIDAD PARA SWAGGER (BOTÓN AUTHORIZE) ----------
 def custom_openapi():
