@@ -2,16 +2,24 @@
 from fastapi import FastAPI, Depends, HTTPException, Header, status
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import Response
+import hashlib
+import hmac
+import os
+from fastapi import Request
 from sqlalchemy.orm import Session
 import json
 from datetime import datetime, UTC
-
 from app.database import get_db
 from app import models, schemas, crud
 from app.core.templates import generate_pdf_from_template_string
+import requests
+
+
 
 # ---------- CREACIÓN DE LA APP ----------
 app = FastAPI(title="DocForge B2B API", version="1.0.0")
+
+
 
 # ---------- CREACIÓN AUTOMÁTICA DE TABLAS (DESARROLLO) ----------
 from app.database import engine, Base
@@ -21,6 +29,8 @@ from app import models  # Esto carga todos los modelos
 def create_tables():
     Base.metadata.create_all(bind=engine)
     print("✅ Tablas verificadas/creadas exitosamente.")
+
+
 
 # ---------- ESQUEMA DE SEGURIDAD PARA SWAGGER (BOTÓN AUTHORIZE) ----------
 def custom_openapi():
@@ -44,6 +54,8 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
+
+
 # ---------- DEPENDENCIA DE AUTENTICACIÓN ----------
 def get_current_organization(
     x_api_key: str = Header(..., alias="X-API-Key"),
@@ -58,6 +70,8 @@ def get_current_organization(
     if not org.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organización desactivada")
     return org
+
+
 
 # ---------- ENDPOINTS ----------
 
@@ -174,3 +188,100 @@ def get_my_plan(
         "current_month_documents": usage.documents_count if usage else 0,
         "limit": 50 if org.plan == models.PlanType.FREE else "ilimitado"
     }
+
+
+
+# ---------- WEBHOOK DE POLAR ----------
+
+POLAR_WEBHOOK_SECRET = os.getenv("POLAR_WEBHOOK_SECRET", "")
+
+@app.post("/api/v1/webhooks/polar")
+async def polar_webhook(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Recibe eventos de suscripción de Polar y actualiza el plan de la organización."""
+    body = await request.body()
+    signature = request.headers.get("polar-signature", "")
+
+    # Verificar firma del webhook
+    expected_signature = hmac.new(
+        POLAR_WEBHOOK_SECRET.encode(),
+        body,
+        hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(signature, expected_signature):
+        raise HTTPException(status_code=403, detail="Firma inválida")
+
+    payload = json.loads(body)
+    event_type = payload.get("type", "")
+
+    # Solo nos interesa cuando se crea o actualiza una suscripción
+    if event_type in ("subscription.created", "subscription.updated"):
+        customer_email = payload["data"]["customer"]["email"]
+        product_name = payload["data"]["product"]["name"]
+
+        # Mapear nombre de producto a plan
+        if "PRO" in product_name:
+            new_plan = models.PlanType.PRO
+        elif "ENTERPRISE" in product_name:
+            new_plan = models.PlanType.ENTERPRISE
+        else:
+            new_plan = models.PlanType.FREE
+
+        # Buscar la organización por email y actualizarle el plan
+        org = crud.get_organization_by_email(db, customer_email)
+        if org:
+            org.plan = new_plan
+            db.commit()
+            print(f"✅ Plan de {org.name} actualizado a {new_plan.value}")
+
+    return {"status": "ok"}
+
+
+
+# ---------- SINCRONIZACIÓN DE PLANES CON POLAR ----------
+POLAR_ACCESS_TOKEN = os.getenv("POLAR_ACCESS_TOKEN", "")
+
+@app.get("/api/v1/sync-subscriptions")
+def sync_subscriptions(db: Session = Depends(get_db)):
+    """Consulta las suscripciones activas en Polar y actualiza los planes de las organizaciones."""
+    if not POLAR_ACCESS_TOKEN:
+        raise HTTPException(status_code=500, detail="POLAR_ACCESS_TOKEN no configurado")
+
+    headers = {"Authorization": f"Bearer {POLAR_ACCESS_TOKEN}"}
+    url = "https://api.polar.sh/v1/subscriptions/"
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"Error al consultar Polar: {str(e)}")
+
+    subscriptions = response.json().get("items", [])
+
+    synced = 0
+    for sub in subscriptions:
+        customer_email = sub.get("customer", {}).get("email")
+        product_name = sub.get("product", {}).get("name", "")
+
+        if not customer_email:
+            continue
+
+        # Mapear nombre de producto a plan
+        if "PRO" in product_name:
+            new_plan = models.PlanType.PRO
+        elif "ENTERPRISE" in product_name:
+            new_plan = models.PlanType.ENTERPRISE
+        else:
+            new_plan = models.PlanType.FREE
+
+        org = crud.get_organization_by_email(db, customer_email)
+        if org and org.plan != new_plan:
+            org.plan = new_plan
+            db.commit()
+            synced += 1
+            print(f"✅ Plan de {org.name} actualizado a {new_plan.value}")
+
+    return {"status": "success", "synced": synced, "total_checked": len(subscriptions)}
