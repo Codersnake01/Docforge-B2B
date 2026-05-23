@@ -1,18 +1,17 @@
 # ---------- IMPORTS ----------
-from fastapi import FastAPI, Depends, HTTPException, Header, status
+from fastapi import FastAPI, Depends, HTTPException, Header, status, Request
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import Response
-import hashlib
-import hmac
-import os
-from fastapi import Request
 from sqlalchemy.orm import Session
 import json
 from datetime import datetime, UTC
-from app.database import get_db
+import hashlib
+import hmac
+import os
+import requests
+from app.database import get_db, engine, Base
 from app import models, schemas, crud
 from app.core.templates import generate_pdf_from_template_string
-import requests
 
 
 
@@ -21,9 +20,6 @@ app = FastAPI(title="DocForge B2B API", version="1.0.0")
 
 
 
-# ---------- CREACIÓN AUTOMÁTICA DE TABLAS (DESARROLLO) ----------
-from app.database import engine, Base
-from app import models  # Esto carga todos los modelos
 
 @app.on_event("startup")
 def create_tables():
@@ -183,11 +179,11 @@ def get_my_plan(
         models.Usage.month == now.month
     ).first()
     return {
-        "organization": org.name,
-        "plan": org.plan.value,
-        "current_month_documents": usage.documents_count if usage else 0,
-        "limit": 50 if org.plan == models.PlanType.FREE else "ilimitado"
-    }
+    "organization": org.name,
+    "plan": org.plan.value,
+    "current_month_documents": usage.documents_count if usage else 0,
+    "limit": 50 if org.plan == models.PlanType.FREE else (5000 if org.plan == models.PlanType.PRO else "ilimitado")
+}
 
 
 

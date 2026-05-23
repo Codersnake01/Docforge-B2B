@@ -91,7 +91,7 @@ def check_and_increment_usage(db: Session, org: models.Organization) -> bool:
 
     limits = {
         models.PlanType.FREE: 50,
-        models.PlanType.PRO: 999999,
+        models.PlanType.PRO: 5000,
         models.PlanType.ENTERPRISE: 999999
     }
     limit = limits.get(org.plan, 50)
