@@ -66,4 +66,4 @@ curl -X POST https://docforge-b2b-api.onrender.com/api/v1/documents/generate \
 Desarrollado por Onda Studio Lab.
 Para consultas, escríbenos a **ondastudiolab@proton.me**.
 
-DocForge B2B · Documentación interactiva en /[/docs](https://docforge-b2b-api.onrender.com/docs)
+DocForge B2B · Documentación interactiva en [/docs](https://docforge-b2b-api.onrender.com/docs)
