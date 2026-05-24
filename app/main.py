@@ -20,7 +20,7 @@ app = FastAPI(title="DocForge B2B API", version="1.0.0")
 
 
 
-
+# ---------- CREACIÓN DE TABLAS EN LA BASE DE DATOS ----------
 @app.on_event("startup")
 def create_tables():
     Base.metadata.create_all(bind=engine)
