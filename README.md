@@ -1,3 +1,5 @@
+This is a project that started with the intention to learn about how to create an API and make profit out of it. I decided to show it as a part of my portfolio using FastAPI, Docker and Python primarily.
+
 DocForge B2B API
 
 API to generate PDF documents from dynamic HTML templates. Designed for B2B integrations.
